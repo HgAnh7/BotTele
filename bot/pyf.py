@@ -6,7 +6,7 @@ from config import ADMIN_ID
 # Lưu chế độ encode của từng user: {user_id: mode}
 user_modes = {}
 
-def register_encode(bot):
+def register_pyf(bot):
 	@bot.message_handler(commands=['pyf'])
 	def encode_command(message):
 		user_id = message.from_user.id
