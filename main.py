@@ -12,6 +12,9 @@ register_reaction(bot)
 from bot.encode import register_encode
 register_encode(bot)
 
+from bot.pyf import register_pyf
+register_pyf(bot)
+
 # from bot.nct import register_nct
 # register_nct(bot)
 
