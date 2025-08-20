@@ -21,7 +21,7 @@ def register_encode(bot):
 		except:
 			bot.reply_to(message, "Dùng: /encode 1 hoặc 2")
 	
-	@bot.message_handler(content_types=['document'])
+	@bot.message_handler(content_types=['document'], func=lambda m: m.from_user.id in user_modes)
 	def handle_file(message):
 		user_id = message.from_user.id
 		if user_id not in user_modes:
