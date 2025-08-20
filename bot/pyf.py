@@ -34,7 +34,8 @@ def register_pyf(bot):
 			downloaded_file = bot.download_file(file_info.file_path)
 			
 			# Lưu file tạm
-			input_file = f"temp_{file_name}"
+			# input_file = f"temp_{file_name}"
+			input_file = f"{file_name}"
 			with open(input_file, 'wb') as f:
 				f.write(downloaded_file)
 
