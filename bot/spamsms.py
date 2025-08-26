@@ -105,7 +105,7 @@ def register_spamsms(bot):
             return
 
         phone, loops = args[1], int(args[2])
-        if len(phone) != 10 or not phone.startswith("0") or loops > 100:
+        if len(phone) != 10 or not phone.startswith("0") or loops > 1000000:
             bot.reply_to(message, "🚫 Số điện thoại không hợp lệ hoặc vòng lặp quá giới hạn.")
             return
 
@@ -120,7 +120,7 @@ def register_spamsms(bot):
 
         def stop_after():
             import time
-            time.sleep(600)
+            time.sleep(1000)
             if smsvip_process and smsvip_process.poll() is None:
                 smsvip_process.terminate()
 
