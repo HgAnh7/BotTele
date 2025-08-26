@@ -95,7 +95,7 @@ def register_spamsms(bot):
             bot.reply_to(message, "⚠️ Bạn chưa mua VIP. Liên hệ /admin để mua.")
             return
 
-        if user_id in last_smsvip_time and (now - last_smsvip_time[user_id]).total_seconds() < 60:
+        if user_id in last_smsvip_time and (now - last_smsvip_time[user_id]).total_seconds() < 10:
             bot.reply_to(message, "🚫 Vui lòng đợi 60s trước khi dùng lại.")
             return
 
