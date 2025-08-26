@@ -96,7 +96,7 @@ def register_spamsms(bot):
             return
 
         if user_id in last_smsvip_time and (now - last_smsvip_time[user_id]).total_seconds() < 10:
-            bot.reply_to(message, "🚫 Vui lòng đợi 60s trước khi dùng lại.")
+            bot.reply_to(message, "🚫 Vui lòng đợi 10s trước khi dùng lại.")
             return
 
         args = message.text.split()
