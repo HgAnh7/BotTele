@@ -283,9 +283,9 @@ def register_lx(bot):
 				# Gửi file zip của chương
 				caption = f"<b><a href='{manga_url}'>{manga_name}</a></b>\nTác giả: {author}\n📁 {chapter_title} ({i+1}/{total})"
 				bot.send_document(chat_id, zip_file, caption)
-				bot.delete_message(chat_id, call.message.message_id)
 				zip_file.close()
-
+				
+			bot.delete_message(chat_id, call.message.message_id)
 			chat_data.pop(chat_id, None)
 			
 		except Exception as e:
