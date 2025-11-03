@@ -76,7 +76,7 @@ def get_chapter_images(chapter_url):
     soup = BeautifulSoup(response.text, "html.parser")
     
     images = []
-    for index, div in enumerate(soup.select("div.text-center div.lazy"), 1):
+    for index, div in enumerate(soup.select("div#image-container.lazy"), 1):
         img_url = div.get("data-src")
         if img_url:
             r = requests.get(img_url, headers=headers, timeout=15)
