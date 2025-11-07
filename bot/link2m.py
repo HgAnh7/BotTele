@@ -24,7 +24,7 @@ def get_code_from_link2m(url):
     except:
         return None, "Lỗi kết nối hoặc trang die"
 
-def register_encode(bot):
+def register_link2m(bot):
 	@bot.message_handler(commands=['link2m'])
 	def handle_link2m(message):
 	    args = message.text.split()
