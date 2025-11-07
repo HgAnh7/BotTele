@@ -10,7 +10,7 @@ def get_code_from_link2m(url):
     
     info_url = f"https://link2m.com/{match.group(1)}/info"
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "Mozilla/5.0", "Accept-Language": "vi-VN,vi;q=0.9", "Referer": "https://link2m.com/",}
         r = requests.get(info_url, headers=headers, timeout=10)
         r.raise_for_status()
         
