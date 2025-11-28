@@ -2,8 +2,13 @@
 import os
 import telebot
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML", skip_pending=True)
+TELEGRAM_TOKEN = os.getenv("TOKEN")
+
+bot = telebot.TeleBot(
+	TELEGRAM_TOKEN,
+	parse_mode="HTML",
+	skip_pending=True
+)
 
 # Luôn phải ở đầu để đạt hiệu quả tốt nhất
 from bot.reaction import register_reaction
