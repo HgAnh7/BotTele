@@ -1,30 +1,34 @@
+# main.py
 import os
-import sys
-import importlib.util
 import telebot
+import pkgutil
+import importlib
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+TELEGRAM_TOKEN = os.getenv("TOKEN")
 
-MODULE_DIR = os.path.join(os.path.dirname(__file__), "bot")
+bot = telebot.TeleBot(
+    TELEGRAM_TOKEN,
+    parse_mode="HTML",
+    skip_pending=True
+)
 
-def load_modules():
-    for fn in os.listdir(MODULE_DIR):
-        if fn.endswith(".py") and not fn.startswith("_"):
-            path = os.path.join(MODULE_DIR, fn)
-            try:
-                spec = importlib.util.spec_from_file_location(fn[:-3], path)
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                if hasattr(mod, "register") and callable(mod.register):
-                    mod.register(bot)
-                    print(f"[OK] Loaded {fn}")
-                else:
-                    print(f"[FAIL] {fn} không có register(bot)")
-            except Exception as e:
-                print(f"[ERROR] Lỗi khi load {fn}: {e}")
+def auto_register_handlers():
+    package = "bot"
 
-if __name__ == "__main__":
-    load_modules()
+    for _, module_name, _ in pkgutil.iter_modules([package]):
+        full_name = f"{package}.{module_name}"
+        module = importlib.import_module(full_name)
+
+        # Tự tìm hàm bắt đầu bằng "register_"
+        for attr in dir(module):
+            if attr.startswith("register_"):
+                func = getattr(module, attr)
+                if callable(func):
+                    func(bot)
+                    print(f"Loaded: {attr} from {module_name}")
+
+auto_register_handlers()
+
+if __name__ == '__main__':
     print("Bot đang chạy...")
     bot.infinity_polling()
