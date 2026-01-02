@@ -19,7 +19,7 @@ def auto_register_handlers():
         full_name = f"{package}.{module_name}"
         module = importlib.import_module(full_name)
 
-        # Tự tìm hàm bắt đầu bằng "register_"
+        # Tự tìm hàm bắt đầu bằng "register_"   
         for attr in dir(module):
             if attr.startswith("register_"):
                 func = getattr(module, attr)
