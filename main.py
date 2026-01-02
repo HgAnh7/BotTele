@@ -95,13 +95,6 @@ register_lx(bot)
 from bot.lxmanga import register_lxmanga
 register_lxmanga(bot)
 
-# from bot.funlink import register_funlink
-from funlink import register_funlink
-register_funlink(bot)
-
-from bot.yeumoney import register_yeumoney
-register_yeumoney(bot)
-
 from bot.sourceweb import register_sourceweb
 register_sourceweb(bot)
 
