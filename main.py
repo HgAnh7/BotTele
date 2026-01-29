@@ -17,6 +17,9 @@ register_reaction(bot)
 # from bot.link2m import register_link2m
 # register_link2m(bot)
 
+from bot.snote import register_snote
+register_snote(bot)
+
 from bot.encode import register_encode
 register_encode(bot)
 
