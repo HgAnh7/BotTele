@@ -135,8 +135,8 @@ def register_spamsms(bot):
 
 
 
-last_call_time = {}
-call_process = None
+    last_call_time = {}
+    call_process = None
 
     
     @bot.message_handler(commands=['call'])
