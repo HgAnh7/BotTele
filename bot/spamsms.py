@@ -125,3 +125,47 @@ def register_spamsms(bot):
                 smsvip_process.terminate()
 
         threading.Thread(target=stop_after).start()
+
+
+
+
+
+    
+    @bot.message_handler(commands=['call'])
+    def sms(message):
+        if message.chat.id not in GROUP_ID:
+            return
+
+        user_id = message.from_user.id
+        now = datetime.now()
+
+        if user_id in last_sms_time and (now - last_sms_time[user_id]).total_seconds() < 100:
+            bot.reply_to(message, "🚫 Vui lòng đợi 100s trước khi dùng lại.")
+            return
+
+        args = message.text.split()
+        if len(args) != 3 or not args[1].isdigit() or not args[2].isdigit():
+            bot.reply_to(message, "🚫 Dùng đúng cú pháp: /call [sđt] [vòng lặp]")
+            return
+
+        phone, loops = args[1], int(args[2])
+        if len(phone) != 10 or not phone.startswith("0") or loops > 20:
+            bot.reply_to(message, "🚫 Số điện thoại không hợp lệ hoặc vòng lặp quá giới hạn.")
+            return
+
+        last_sms_time[user_id] = now
+        bot.reply_to(message, f"<b>Bắt đầu tấn công SEVER 3</b>\n🌱 <b>SĐT:</b> {phone}\n🌩️ <b>Vòng lặp:</b> {loops}")
+
+        global sms_process
+        if sms_process and sms_process.poll() is None:
+            sms_process.terminate()
+
+        sms_process = subprocess.Popen(["python3", "bot/spamsms/call.py", phone, str(loops)])
+
+        def stop_after():
+            import time
+            time.sleep(200)
+            if sms_process and sms_process.poll() is None:
+                sms_process.terminate()
+
+        threading.Thread(target=stop_after).start()
