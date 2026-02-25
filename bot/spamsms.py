@@ -136,8 +136,8 @@ def register_spamsms(bot):
         user_id = message.from_user.id
         now = datetime.now()
 
-        if user_id in last_call_time and (now - last_call_time[user_id]).total_seconds() < 100:
-            bot.reply_to(message, "🚫 Vui lòng đợi 100s trước khi dùng lại.")
+        if user_id in last_call_time and (now - last_call_time[user_id]).total_seconds() < 20:
+            bot.reply_to(message, "🚫 Vui lòng đợi 20s trước khi dùng lại.")
             return
 
         args = message.text.split()
