@@ -8,8 +8,10 @@ VIP_FILE = "bot/spamsms/vip.txt"
 
 last_sms_time = {}
 last_smsvip_time = {}
+last_call_time = {}  # Di chuyển lên trên
 sms_process = None
 smsvip_process = None
+call_process = None  # Khai báo call_process ở đây
 
 def is_vip(user_id):
     if not os.path.exists(VIP_FILE):
@@ -126,19 +128,6 @@ def register_spamsms(bot):
 
         threading.Thread(target=stop_after).start()
 
-
-
-
-
-
-
-
-
-
-    last_call_time = {}
-    call_process = None
-
-    
     @bot.message_handler(commands=['call'])
     def call(message):
         if message.chat.id not in GROUP_ID:
@@ -177,4 +166,3 @@ def register_spamsms(bot):
                 call_process.terminate()
 
         threading.Thread(target=stop_after).start()
-
