@@ -1,5 +1,5 @@
 import os
-import telebot
+import pyTelegramBotAPI
 
 TELEGRAM_TOKEN = os.getenv("TOKEN")
 
