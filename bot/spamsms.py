@@ -136,28 +136,28 @@ def register_spamsms(bot):
         user_id = message.from_user.id
         now = datetime.now()
 
-        if user_id in last_call_time and (now - last_call_time[user_id]).total_seconds() < 20:
-            bot.reply_to(message, "🚫 Vui lòng đợi 20s trước khi dùng lại.")
+        if user_id in last_call_time and (now - last_call_time[user_id]).total_seconds() < 60:
+            bot.reply_to(message, "🚫 Vui lòng đợi 60s trước khi dùng lại.")
             return
 
         args = message.text.split()
-        if len(args) != 3 or not args[1].isdigit() or not args[2].isdigit():
-            bot.reply_to(message, "🚫 Dùng đúng cú pháp: /call [sđt] [vòng lặp]")
+        if len(args) != 2 or not args[1].isdigit():
+            bot.reply_to(message, "🚫 Dùng đúng cú pháp: /call [sđt]")
             return
 
-        phone, loops = args[1], int(args[2])
-        if len(phone) != 10 or not phone.startswith("0") or loops > 20:
-            bot.reply_to(message, "🚫 Số điện thoại không hợp lệ hoặc vòng lặp quá giới hạn.")
+        phone = args[1]
+        if len(phone) != 10 or not phone.startswith("0"):
+            bot.reply_to(message, "🚫 Số điện thoại không hợp lệ.")
             return
 
         last_call_time[user_id] = now
-        bot.reply_to(message, f"<b>Bắt đầu tấn công SEVER 3</b>\n🌱 <b>SĐT:</b> {phone}\n🌩️ <b>Vòng lặp:</b> {loops}")
+        bot.reply_to(message, f"<b>Bắt đầu tấn công SEVER 3</b>\n🌱 <b>SĐT:</b> {phone}")
 
         global call_process
         if call_process and call_process.poll() is None:
             call_process.terminate()
 
-        call_process = subprocess.Popen(["python3", "bot/spamsms/call.py", phone, str(loops)])
+        call_process = subprocess.Popen(["python3", "bot/spamsms/call.py", phone,])
 
         def stop_after():
             import time
