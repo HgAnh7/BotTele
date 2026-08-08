@@ -1,206 +1,185 @@
-
-    
-import re
-import random
-import logging
+import io
 import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-import xml.etree.ElementTree as ET
+import threading
+from telebot import types
 
-# Cấu hình logging
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Thông tin API NhacCuaTui
-BASE_URL = 'https://www.nhaccuatui.com'
-API_SEARCH = BASE_URL + '/tim-kiem/bai-hat'
-
-# Lưu tạm dữ liệu cho mỗi lần tìm kiếm
+API_SEARCH_URL = "https://graph.nhaccuatui.com/api/v1/search/song"
 nct_data = {}
 
-# User-Agent để tránh chặn
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-]
-ACCEPT_LANGUAGES = ["en-US,en;q=0.9", "fr-FR,fr;q=0.9", "es-ES,es;q=0.9", "de-DE,de;q=0.9", "zh-CN,zh;q=0.9"]
+def search_music(keyword):
+	try:
+		params = {
+			"keyword": keyword,
+			"pageindex": 1,
+			"pagesize": 30,
+			"correct": "true",
+		}
+		response = requests.get(
+			API_SEARCH_URL,
+			params=params,
+			timeout=10,
+		)
+		return response.json()
+	except Exception:
+		return None
 
-# Tạo headers ngẫu nhiên
-def get_headers():
-    return {
-        'User-Agent': random.choice(USER_AGENTS),
-        'Accept-Language': random.choice(ACCEPT_LANGUAGES),
-        'Referer': BASE_URL,
-    }
+def get_best_stream_url(song):
+	"""Chọn link tải chất lượng cao nhất có sẵn (dựa theo typeUI, vd '320', '128')."""
+	streams = song.get('streamURL') or []
+	if not streams:
+		return None
 
-# 1. Tìm kiếm bài hát, trả về danh sách track với title, artist, id, detail_url
-def search_nhaccuatui(keyword, limit=10):
-    params = {'q': keyword, 'b': 'keyword', 'l': 'tat-ca', 's': 'default'}
-    try:
-        resp = requests.get(API_SEARCH, params=params, headers=get_headers())
-        resp.raise_for_status()
-        html = resp.text
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Lỗi request khi tìm kiếm: {e}")
-        return []
+	def quality_score(s):
+		type_ui = (s.get('typeUI') or '').strip()
+		digits = ''.join(ch for ch in type_ui if ch.isdigit())
+		return int(digits) if digits else 0
 
-    soup = BeautifulSoup(html, 'html.parser')
-    items = soup.select('ul.sn_search_returns_list_song li.sn_search_single_song')[:limit]
-    tracks = []
-    for item in items:
-        title_elem = item.select_one('h3.title_song a')
-        artist_elem = item.select_one('h4.singer_song')
-        detail_href = title_elem.get('href') if title_elem else None
-        if title_elem and detail_href:
-            track_id = detail_href.split('.')[-2]
-            title = title_elem.get_text(separator=' ', strip=True)
-            artist = 'Unknown'
-            if artist_elem:
-                artist_links = artist_elem.select('a')
-                if artist_links:
-                    artists = [a.get_text(separator=' ', strip=True) for a in artist_links]
-                    artist = ', '.join(artists)
-                else:
-                    artist = artist_elem.get_text(separator=' ', strip=True)
-            tracks.append({
-                'title': title,
-                'artist': artist,
-                'id': track_id,
-                'detail_url': urljoin(BASE_URL, detail_href)
-            })
-    return tracks
+	best = max(streams, key=quality_score)
+	return best.get('download')
 
-# 2. Lấy URL audio từ trang chi tiết qua XML API
-def get_download_url(track):
-    detail_url = track.get('detail_url')
-    if not detail_url:
-        return None
-    # Khởi tạo thumbnail mặc định
-    track['thumbnail'] = None
-    try:
-        resp = requests.get(detail_url, headers=get_headers())
-        resp.raise_for_status()
-        html = resp.text
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Lỗi request đến trang chi tiết ({detail_url}): {e}")
-        return None
-
-    # --- BỔ SUNG: Trích thumbnail từ meta og:image ---
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        og_image = soup.select_one('meta[property="og:image"]')
-        if og_image and og_image.has_attr('content'):
-            thumb_url = og_image['content'].strip()
-            # Chuẩn hóa URL nếu cần
-            if thumb_url.startswith('//'):
-                thumb_url = 'https:' + thumb_url
-            track['thumbnail'] = thumb_url
-    except Exception as e:
-        logging.warning(f"Không lấy được thumbnail từ {detail_url}: {e}")
-        track['thumbnail'] = None
-
-    # Trích xmlURL trong JS
-    xml_match = re.search(r"peConfig\.xmlURL\s*=\s*['\"](https://www\.nhaccuatui\.com/flash/xml\?html5=true&key1=[^'\"]+)['\"]", html)
-    if not xml_match:
-        logging.warning(f"Không tìm thấy xmlURL trong trang: {detail_url}")
-        return None
-    xml_url = xml_match.group(1)
-
-    try:
-        xml_resp = requests.get(xml_url, headers={**get_headers(), 'Referer': detail_url})
-        xml_resp.raise_for_status()
-        xml_content = xml_resp.text
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Lỗi request đến XML API ({xml_url}): {e}")
-        return None
-
-    try:
-        root = ET.fromstring(xml_content)
-        loc = root.find('.//location')
-        if loc is not None and loc.text:
-            audio_url = loc.text.strip()
-            if audio_url.startswith('//'):
-                audio_url = 'https:' + audio_url
-            elif audio_url.startswith('http://'):
-                audio_url = 'https://' + audio_url[len('http://'):]
-            return audio_url
-    except ET.ParseError as e:
-        logging.error(f"Lỗi parse XML từ ({xml_url}): {e}\nNội dung XML: {xml_content}")
-        return None
-    return None
 
 def register_nct(bot):
-    # /nct command
-    @bot.message_handler(commands=['nct'])
-    def nhaccuatui(message):
-        args = message.text.split(maxsplit=1)
-        if len(args) < 2:
-            bot.reply_to(message, '🚫 Vui lòng nhập tên bài hát muốn tìm kiếm.\nVí dụ: /nct Tên bài hát')
-            return
-        keyword = args[1].strip()
-        results = search_nhaccuatui(keyword)
-        if not results:
-            bot.reply_to(message, f'🚫 Không tìm thấy bài hát nào với từ khóa: {keyword}')
-            return
-        songs = results[:10]
-        text = '<b>🎵 Kết quả tìm kiếm trên Nhaccuatui</b>\n\n'
-        for i, song in enumerate(songs, 1):
-            text += f"<b>{i}. {song['title']}</b>\n"
-            text += f"👤 Nghệ sĩ: {song['artist']}\n"
-            text += f"🆔 ID: {song['id']}\n\n"
-        text += '<b>💡 Trả lời tin nhắn này bằng số từ 1-10 để chọn bài hát!</b>'
-        sent = bot.reply_to(message, text)
-        nct_data[sent.message_id] = {
-            'user_id': message.from_user.id,
-            'songs': songs
-         }
-    
-    # Xử lý chọn bài
-    @bot.message_handler(func=lambda m: m.reply_to_message and m.reply_to_message.message_id in nct_data)
-    def handle_nct_selection(msg):
-        reply_id = msg.reply_to_message.message_id
-        if reply_id not in nct_data:
-            return
-        user_id = msg.from_user.id
-    
-        data = nct_data[reply_id]
-        if user_id != data['user_id']:
-            return
-        text = msg.text.strip()
-        if not text.isdigit():
-            bot.reply_to(msg, '🚫 Vui lòng chỉ nhập số từ 1-10.')
-            return
-        idx = int(text) - 1
-        if idx < 0 or idx >= len(data['songs']):
-            bot.reply_to(msg, '🚫 Số không hợp lệ. Hãy nhập số từ 1-10.')
-            return
-        song = data['songs'][idx]
-        bot.delete_message(msg.chat.id, reply_id)
-        bot.reply_to(msg, f"🧭 Đang tải: {song['title']} - {song['artist']}")
-        audio_url = get_download_url(song)
-        if not audio_url:
-            bot.reply_to(msg, '🚫 Không thể tải bài hát này.')
-            return
-        thumbnail_url = song.get("thumbnail")
-        caption = f"""<blockquote>
-    ⭔───────────────⭓
-     <b>{song['title']}</b>
-     Nghệ sĩ: {song['artist']}
-     Nguồn: <b>NhacCuaTui</b> 
-    ⭓───────────────⭔
-    </blockquote>"""
-        thumbnail_url = song.get("thumbnail")
-        if thumbnail_url:
-            try:
-                bot.send_photo(msg.chat.id, thumbnail_url, caption=caption)
-            except Exception:
-                bot.reply_to(msg, caption + "\n🚫 Không thể tải thumbnail.")
-        else:
-            bot.reply_to(msg, caption)
-        try:
-            bot.send_audio(msg.chat.id, audio_url, title=song['title'], performer=song['artist'])
-        except Exception:
-            bot.reply_to(msg, '🚫 Không thể gửi audio.')
-        del nct_data[reply_id]
+	@bot.message_handler(commands=['nct'])
+	def nhaccuatui(message):
+		args = message.text.split(maxsplit=1)
+		if len(args) < 2:
+			bot.reply_to(message, "🚫 Vui lòng nhập tên bài hát muốn tìm kiếm.\nVí dụ: /nct Tên bài hát")
+			return
+
+		keyword = args[1]
+		result = search_music(keyword)
+		songs = (result or {}).get('data', {}).get('songs') or []
+		if not songs:
+			bot.reply_to(message, "🚫 Không tìm thấy bài hát nào khớp với từ khóa.")
+			return
+
+		songs = [song for song in songs if song.get('image')]
+		songs = songs[:10]
+		if not songs:
+			bot.reply_to(message, "🚫 Không tìm thấy bài hát nào có hình ảnh.")
+			return
+
+		# Tạo response text
+		lines = ["<b>🎵 Kết quả tìm kiếm trên NhacCuaTui</b>\n"]
+		for i, song in enumerate(songs):
+			lines.append(
+				f"<b>{i + 1}. {song.get('name', 'Không rõ')}</b>\n"
+				f" <b>» Ca sĩ:</b> {song.get('artistName', 'Không rõ')}\n"
+			)
+		lines.append("<b>💡 Chọn số bài hát bạn muốn tải!</b>")
+		response_text = "\n".join(lines)
+
+		# Tạo inline keyboard
+		markup = types.InlineKeyboardMarkup(row_width=5)
+		markup.add(*[
+			types.InlineKeyboardButton(str(i + 1), callback_data=f"nct_{message.from_user.id}_{i}")
+			for i in range(len(songs))
+		])
+
+		# Gửi message với inline keyboard
+		sent = bot.reply_to(message, response_text, reply_markup=markup)
+		# Lưu data cho callback
+		key = f"{message.from_user.id}_{sent.message_id}"
+		nct_data[key] = {
+			"songs": songs,
+			"chat_id": sent.chat.id,
+			"command_msg_id": message.message_id,
+		}
+
+		# Tự động xóa sau 2 phút nếu chưa chọn
+		def delete_if_not_used():
+			if key in nct_data:
+				try:
+					bot.delete_message(sent.chat.id, sent.message_id)
+					bot.delete_message(sent.chat.id, nct_data[key]["command_msg_id"])
+				except Exception:
+					pass
+				nct_data.pop(key, None)
+
+		threading.Timer(120, delete_if_not_used).start()
+
+	@bot.callback_query_handler(func=lambda call: call.data.startswith('nct_'))
+	def handle_nhaccuatui_callback(call):
+		try:
+			# Parse callback data
+			parts = call.data.split('_')
+			user_id = int(parts[1])
+			song_index = int(parts[2])
+
+			# Kiểm tra quyền truy cập
+			if call.from_user.id != user_id:
+				bot.answer_callback_query(call.id, "❌ Bạn không có quyền sử dụng nút này!", show_alert=True)
+				return
+
+			key = f"{user_id}_{call.message.message_id}"
+			data = nct_data.pop(key, None)
+			if not data:
+				bot.answer_callback_query(call.id, "❌ Dữ liệu đã hết hạn hoặc đã dùng rồi!", show_alert=True)
+				return
+
+			songs = data["songs"]
+			# Kiểm tra index hợp lệ
+			if song_index >= len(songs):
+				bot.answer_callback_query(call.id, "❌ Lựa chọn không hợp lệ!", show_alert=True)
+				return
+
+			song = songs[song_index]
+			song_name = song.get('name', 'Không rõ')
+			artist_name = song.get('artistName', 'Không rõ')
+
+			bot.answer_callback_query(call.id, f"🎵 Đang tải: {song_name}")
+			bot.edit_message_text(
+				f"🧭 Đang tải: <b>{song_name}</b>\n👤 Ca sĩ: {artist_name}\n\n⏳ Vui lòng chờ...",
+				chat_id=call.message.chat.id,
+				message_id=call.message.message_id,
+			)
+
+			# Lấy audio URL và thumbnail
+			audio_url = get_best_stream_url(song)
+			thumbnail_url = song.get('image', '')
+			if not audio_url or not thumbnail_url:
+				bot.edit_message_text(
+					"🚫 Không tìm thấy nguồn audio hoặc thumbnail.",
+					chat_id=call.message.chat.id,
+					message_id=call.message.message_id,
+				)
+				return
+
+			caption = f"""<blockquote>⭔───────────────⭓
+ <b>{song_name}</b>
+ » <b>Ca sĩ:</b> {artist_name}
+ » <b>Nguồn:</b> NhacCuaTui 🎶 
+⭓───────────────⭔</blockquote>"""
+
+			resp = requests.get(audio_url, headers=HEADERS, stream=True, timeout=30)
+			resp.raise_for_status()
+
+			content_length = int(resp.headers.get('Content-Length', 0))
+			if content_length > 50 * 1024 * 1024:  # Giới hạn 50MB
+				bot.edit_message_text(
+					"🚫 File nhạc quá lớn (>50MB) nên không thể gửi qua Telegram.",
+					chat_id=call.message.chat.id,
+					message_id=call.message.message_id,
+				)
+				return
+
+			audio = io.BytesIO(resp.content)
+			audio.name = f"{song_name}.mp3"
+
+			# Gửi ảnh thumbnail và audio
+			bot.send_photo(call.message.chat.id, thumbnail_url, caption=caption)
+			bot.send_audio(
+				call.message.chat.id,
+				audio,
+				title=song_name,
+				performer=artist_name,
+			)
+
+			# Xóa tin nhắn kết quả tìm kiếm
+			try:
+				bot.delete_message(call.message.chat.id, call.message.message_id)
+			except Exception:
+				pass
+
+		except Exception as e:
+			bot.answer_callback_query(call.id, f"❌ Có lỗi xảy ra: {str(e)}", show_alert=True)
