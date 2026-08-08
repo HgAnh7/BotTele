@@ -25,7 +25,7 @@ register_encode(bot)
 from bot.pyf import register_pyf
 register_pyf(bot)
 
-# from bot.nct import register_nct
+from bot.nct import register_nct
 register_nct(bot)
 
 from bot.share import register_share
