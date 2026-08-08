@@ -26,7 +26,7 @@ from bot.pyf import register_pyf
 register_pyf(bot)
 
 # from bot.nct import register_nct
-# register_nct(bot)
+register_nct(bot)
 
 from bot.share import register_share
 register_share(bot)
